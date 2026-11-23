@@ -1,6 +1,10 @@
 package app
 
-import "github.com/relay-deploy/notify/internal/domain"
+import (
+	"time"
+
+	"github.com/relay-deploy/notify/internal/domain"
+)
 
 type Names struct {
 	App     string
@@ -14,5 +18,5 @@ type Rendered struct {
 }
 
 type Composer interface {
-	Compose(email domain.Email, names Names) (Rendered, error)
+	Compose(email domain.Email, names Names, renderedAt time.Time) (Rendered, error)
 }

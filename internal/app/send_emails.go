@@ -101,7 +101,7 @@ func (s SendEmails) render(ctx context.Context, pending PendingEmail, now time.T
 	if err != nil || !ready {
 		return Rendered{}, false, err
 	}
-	rendered, err := s.Composer.Compose(pending.Email, names)
+	rendered, err := s.Composer.Compose(pending.Email, names, now)
 	if err != nil {
 		return Rendered{}, false, s.abandon(ctx, pending, err.Error())
 	}

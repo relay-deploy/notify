@@ -49,26 +49,32 @@ func run() int {
 	composer := email.NewComposer(location)
 	names := app.Names{App: "web", Project: "crashlab"}
 	for _, sample := range samples(location) {
-		rendered, err := composer.Compose(sample, names)
+		kind := sample.email.Kind
+		rendered, err := composer.Compose(sample.email, names, sample.sentAt)
 		if err != nil {
-			logger.Error("Cannot compose the preview", "kind", sample.Kind, "error", err)
+			logger.Error("Cannot compose the preview", "kind", kind, "error", err)
 			return 1
 		}
-		base := filepath.Join(*out, string(sample.Kind))
+		base := filepath.Join(*out, string(kind))
 		if err := write(base+".html", rendered.HTML); err != nil {
-			logger.Error("Cannot write the preview", "kind", sample.Kind, "error", err)
+			logger.Error("Cannot write the preview", "kind", kind, "error", err)
 			return 1
 		}
 		if err := write(base+".txt", rendered.Text); err != nil {
-			logger.Error("Cannot write the preview", "kind", sample.Kind, "error", err)
+			logger.Error("Cannot write the preview", "kind", kind, "error", err)
 			return 1
 		}
-		logger.Info("Wrote the preview", "kind", sample.Kind, "subject", rendered.Subject, "path", base+".html")
+		logger.Info("Wrote the preview", "kind", kind, "subject", rendered.Subject, "path", base+".html")
 	}
 	return 0
 }
 
-func samples(location *time.Location) []domain.Email {
+type sample struct {
+	email  domain.Email
+	sentAt time.Time
+}
+
+func samples(location *time.Location) []sample {
 	clock := func(hour, minute int) time.Time {
 		return time.Date(2026, time.November, 23, hour, minute, 0, 0, location)
 	}
@@ -105,23 +111,23 @@ func samples(location *time.Location) []domain.Email {
 		RanOutOfMemory: true,
 		RecoveredAt:    &recoveredAt,
 	}
-	return []domain.Email{
-		domain.DeployedEmail(sampleAppID, sampleProjectID, domain.Facts{
+	return []sample{
+		{email: domain.DeployedEmail(sampleAppID, sampleProjectID, domain.Facts{
 			ReleaseID:      deployingReleaseID,
 			ImageReference: liveImage,
 			ImageDigest:    liveDigest,
 			Duration:       14*time.Second + 300*time.Millisecond,
-		}, clock(14, 36)),
-		domain.DeployFailedEmail(sampleAppID, sampleProjectID, domain.Facts{
+		}, clock(14, 36)), sentAt: clock(14, 36)},
+		{email: domain.DeployFailedEmail(sampleAppID, sampleProjectID, domain.Facts{
 			ReleaseID:      deployingReleaseID,
 			ImageReference: missingImage,
 			FailureCode:    missingImageCode,
 			FailureMessage: missingImageFailure,
 			Duration:       6*time.Second + 800*time.Millisecond,
-		}, clock(14, 36)),
-		domain.CrashedEmail(firstCrash),
-		domain.StillCrashingEmail(loop, clock(14, 57)),
-		domain.RecoveredEmail(recovery),
+		}, clock(14, 36)), sentAt: clock(14, 36)},
+		{email: domain.CrashedEmail(firstCrash), sentAt: clock(14, 27)},
+		{email: domain.StillCrashingEmail(loop, clock(14, 57)), sentAt: clock(14, 57)},
+		{email: domain.RecoveredEmail(recovery), sentAt: clock(14, 36)},
 	}
 }
 

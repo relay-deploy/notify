@@ -99,8 +99,8 @@ type organization struct {
 	Name string `json:"name"`
 }
 
-func (c *Composer) Compose(e domain.Email, names app.Names) (app.Rendered, error) {
-	content, err := c.page(e, names)
+func (c *Composer) Compose(e domain.Email, names app.Names, renderedAt time.Time) (app.Rendered, error) {
+	content, err := c.page(e, names, renderedAt)
 	if err != nil {
 		return app.Rendered{}, err
 	}
@@ -114,7 +114,7 @@ func (c *Composer) Compose(e domain.Email, names app.Names) (app.Rendered, error
 	return app.Rendered{Subject: content.Subject, HTML: html.String(), Text: text.String()}, nil
 }
 
-func (c *Composer) page(e domain.Email, names app.Names) (page, error) {
+func (c *Composer) page(e domain.Email, names app.Names, renderedAt time.Time) (page, error) {
 	about := naming{app: nameOrShortID(names.App, e.AppID), project: nameOrShortID(names.Project, e.ProjectID)}
 	var content page
 	switch e.Kind {
@@ -137,7 +137,7 @@ func (c *Composer) page(e domain.Email, names app.Names) (page, error) {
 	}
 	content.Project = about.project
 	content.LinkedData = linked
-	content.Footer = c.footer(e.At)
+	content.Footer = c.footer(renderedAt)
 	return content, nil
 }
 
