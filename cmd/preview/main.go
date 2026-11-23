@@ -15,16 +15,16 @@ import (
 const (
 	sampleAppID         = "019ab3c2-7d41-7e0a-9f3b-2c5d8e1a4b6f"
 	sampleProjectID     = "019ab3c1-0b2e-7f4d-a6c8-1e3f5a7b9d02"
-	sampleReleaseID     = "019ab3c4-1a2b-7c3d-8e4f-5a6b3e9d27c1"
-	sampleNextReleaseID = "019ab3d9-5c6e-7a1b-9d2f-4e6a8c0b51f7"
-	sampleImage         = "ghcr.io/crashlab/web:1.4.2"
-	sampleNextImage     = "ghcr.io/crashlab/web:1.4.3"
-	sampleDigest        = "sha256:9c1d4e7a2b3f6a8d0e5c7b9a1f3d5e7c9b2a4f6d8e0c2a4b6d8f0e2c4a6b8d0f"
-	sampleFailureCode   = "image.not_found"
-	sampleFailure       = "Error response from daemon: manifest for ghcr.io/crashlab/web:1.4.3 not found: manifest unknown: manifest unknown\n" +
+	crashingReleaseID   = "019ab3c4-1a2b-7c3d-8e4f-5a6b3e9d27c1"
+	deployingReleaseID  = "019ab3d9-5c6e-7a1b-9d2f-4e6a8c0b51f7"
+	liveImage           = "ghcr.io/crashlab/web:1.4.2"
+	missingImage        = "ghcr.io/crashlab/web:1.4.3"
+	liveDigest          = "sha256:4f1c9a2e7b309c1d4e7a2b3f6a8d0e5c7b9a1f3d5e7c9b2a4f6d8e0c2a4b6d8f"
+	missingImageCode    = "image.not_found"
+	missingImageFailure = "manifest for ghcr.io/crashlab/web:1.4.3 not found: manifest unknown\n" +
 		"GET https://ghcr.io/v2/crashlab/web/manifests/1.4.3 returned 404 Not Found with an HTML body instead of a manifest:\n" +
 		`<!DOCTYPE html><html lang="en"><head><title>Not Found</title><script>&"use strict";window.location.replace("/login?return_to=%2Fcrashlab%2Fweb")</script></head><body><main><h1>404</h1><p>This package does not exist, or you cannot read it.</p></main></body></html>` + "\n" +
-		"Tried 3 pulls over 6s, waiting 1s, 2s and 3s between them. Check that the tag was pushed, that the package is public or that relay's registry credentials can read it, and that the image reference in the release is spelled correctly. The last attempt ended at 14:31:54 CET."
+		"Tried 3 pulls over 6s, waiting 1s, 2s and 3s between them. Check that the tag was pushed, that the package is public or that relay's registry credentials can read it, and that the image reference in the release is spelled correctly. The last attempt ended at 14:36:04 CET."
 )
 
 func main() {
@@ -48,8 +48,7 @@ func run() int {
 
 	composer := email.NewComposer(location)
 	names := app.Names{App: "web", Project: "crashlab"}
-	at := time.Date(2026, time.November, 23, 14, 32, 0, 0, location)
-	for _, sample := range samples(at) {
+	for _, sample := range samples(location) {
 		rendered, err := composer.Compose(sample, names)
 		if err != nil {
 			logger.Error("Cannot compose the preview", "kind", sample.Kind, "error", err)
@@ -69,35 +68,38 @@ func run() int {
 	return 0
 }
 
-func samples(at time.Time) []domain.Email {
+func samples(location *time.Location) []domain.Email {
+	clock := func(hour, minute int) time.Time {
+		return time.Date(2026, time.November, 23, hour, minute, 0, 0, location)
+	}
 	firstCrash := &domain.CrashAlert{
 		AppID:               sampleAppID,
 		ProjectID:           sampleProjectID,
-		ReleaseID:           sampleReleaseID,
-		OpenedAt:            at,
-		LastCrashAt:         at,
+		ReleaseID:           crashingReleaseID,
+		OpenedAt:            clock(14, 27),
+		LastCrashAt:         clock(14, 27),
 		CrashCount:          1,
 		LastExitCode:        137,
 		RanOutOfMemory:      true,
-		OpeningRestartCount: 2,
+		OpeningRestartCount: 1,
 	}
 	loop := &domain.CrashAlert{
 		AppID:          sampleAppID,
 		ProjectID:      sampleProjectID,
-		ReleaseID:      sampleReleaseID,
-		OpenedAt:       at.Add(-30*time.Minute - 12*time.Second),
-		LastCrashAt:    at.Add(-25 * time.Second),
+		ReleaseID:      crashingReleaseID,
+		OpenedAt:       clock(14, 27),
+		LastCrashAt:    clock(14, 56).Add(35 * time.Second),
 		CrashCount:     42,
 		LastExitCode:   137,
 		RanOutOfMemory: true,
 	}
-	recoveredAt := at
+	recoveredAt := clock(14, 31)
 	recovery := &domain.CrashAlert{
 		AppID:          sampleAppID,
 		ProjectID:      sampleProjectID,
-		ReleaseID:      sampleReleaseID,
-		OpenedAt:       at.Add(-4*time.Minute - 18*time.Second),
-		LastCrashAt:    at.Add(-40 * time.Second),
+		ReleaseID:      crashingReleaseID,
+		OpenedAt:       clock(14, 27),
+		LastCrashAt:    clock(14, 30).Add(40 * time.Second),
 		CrashCount:     6,
 		LastExitCode:   137,
 		RanOutOfMemory: true,
@@ -105,20 +107,20 @@ func samples(at time.Time) []domain.Email {
 	}
 	return []domain.Email{
 		domain.DeployedEmail(sampleAppID, sampleProjectID, domain.Facts{
-			ReleaseID:      sampleReleaseID,
-			ImageReference: sampleImage,
-			ImageDigest:    sampleDigest,
+			ReleaseID:      deployingReleaseID,
+			ImageReference: liveImage,
+			ImageDigest:    liveDigest,
 			Duration:       14*time.Second + 300*time.Millisecond,
-		}, at),
+		}, clock(14, 36)),
 		domain.DeployFailedEmail(sampleAppID, sampleProjectID, domain.Facts{
-			ReleaseID:      sampleNextReleaseID,
-			ImageReference: sampleNextImage,
-			FailureCode:    sampleFailureCode,
-			FailureMessage: sampleFailure,
+			ReleaseID:      deployingReleaseID,
+			ImageReference: missingImage,
+			FailureCode:    missingImageCode,
+			FailureMessage: missingImageFailure,
 			Duration:       6*time.Second + 800*time.Millisecond,
-		}, at),
+		}, clock(14, 36)),
 		domain.CrashedEmail(firstCrash),
-		domain.StillCrashingEmail(loop, at),
+		domain.StillCrashingEmail(loop, clock(14, 57)),
 		domain.RecoveredEmail(recovery),
 	}
 }
