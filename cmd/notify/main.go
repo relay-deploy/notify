@@ -2,13 +2,18 @@ package main
 
 import (
 	"context"
+	"log/slog"
 	"os"
 
 	chassisevents "github.com/relay-deploy/chassis/go/events"
 	"github.com/relay-deploy/chassis/go/hosting"
 	"github.com/relay-deploy/chassis/go/logging"
 	chassispostgres "github.com/relay-deploy/chassis/go/postgres"
+	"github.com/relay-deploy/notify/internal/adapter/email"
+	"github.com/relay-deploy/notify/internal/adapter/logmailer"
+	"github.com/relay-deploy/notify/internal/adapter/platform"
 	notifypostgres "github.com/relay-deploy/notify/internal/adapter/postgres"
+	"github.com/relay-deploy/notify/internal/adapter/resend"
 	"github.com/relay-deploy/notify/internal/app"
 	"github.com/relay-deploy/notify/internal/transport/events"
 )
@@ -43,9 +48,12 @@ func run() int {
 	health := hosting.NewHealth()
 	health.AddReadiness("postgres", chassispostgres.Readiness(pool))
 
-	if loaded.resendAPIKey == "" {
-		logger.Warn("No Resend API key, emails are logged instead of sent")
+	directory, err := platform.NewDirectory(loaded.platformAddress)
+	if err != nil {
+		logger.Error("Invalid Platform address", "error", err)
+		return 1
 	}
+	defer directory.Close()
 
 	dispatcher := events.Dispatcher(app.WorkloadEvents{NewLoopAfter: loaded.newLoopAfter}, app.ReleaseEvents{})
 	components := []hosting.Component{hosting.ManagementServer(loaded.managementPort, health)}
@@ -61,5 +69,22 @@ func run() int {
 	}
 	components = append(components, alertPassComponent(pass, loaded.alertPassInterval))
 
+	sender := app.SendEmails{
+		Store:             notifypostgres.NewEmailStore(pool),
+		Directory:         directory,
+		Composer:          email.NewComposer(loaded.location),
+		Mailer:            mailerFor(loaded, logger),
+		NameFallbackAfter: loaded.nameFallbackAfter,
+	}
+	components = append(components, senderComponent(pool, sender))
+
 	return hosting.Run(logger, components...)
+}
+
+func mailerFor(loaded settings, logger *slog.Logger) app.Mailer {
+	if loaded.resendAPIKey == "" {
+		logger.Warn("No Resend API key, emails are logged instead of sent")
+		return logmailer.NewMailer()
+	}
+	return resend.NewMailer(loaded.resendBaseURL, loaded.resendAPIKey, loaded.emailFrom, loaded.emailTo)
 }
