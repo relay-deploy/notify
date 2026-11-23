@@ -4,6 +4,7 @@ import (
 	"context"
 	"log/slog"
 	"os"
+	_ "time/tzdata"
 
 	chassisevents "github.com/relay-deploy/chassis/go/events"
 	"github.com/relay-deploy/chassis/go/hosting"
