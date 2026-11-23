@@ -1,0 +1,25 @@
+RELAY
+
+{{.App}} {{.Verb}}
+{{- with .Project}}
+{{.}}
+{{- end}}
+{{- with .Summary}}
+
+{{.}}
+{{- end}}
+{{- if .Rows}}
+{{range .Rows}}
+{{printf "%-16s" .Label}}{{.Value}}{{with .Note}} · {{.}}{{end}}
+{{- end}}
+{{- end}}
+{{- with .Failure}}
+{{with .Code}}
+{{.}}
+{{- end}}
+{{- with .Message}}
+{{.}}
+{{- end}}
+{{- end}}
+
+{{.SentAt}} · Sent by relay
