@@ -3,6 +3,7 @@ package events
 import (
 	"context"
 	"fmt"
+	"regexp"
 
 	"github.com/jackc/pgx/v5"
 	chassisevents "github.com/relay-deploy/chassis/go/events"
@@ -19,7 +20,10 @@ import (
 
 const invalidEventCode = "notify.invalid_event"
 
-var decoder = protojson.UnmarshalOptions{DiscardUnknown: true}
+var (
+	decoder     = protojson.UnmarshalOptions{DiscardUnknown: true}
+	uuidPattern = regexp.MustCompile(`^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$`)
+)
 
 func Dispatcher(workload app.WorkloadEvents, releases app.ReleaseEvents) chassisevents.Handler {
 	return func(ctx context.Context, tx pgx.Tx, event chassisevents.Event) error {
@@ -71,17 +75,30 @@ func Dispatcher(workload app.WorkloadEvents, releases app.ReleaseEvents) chassis
 	}
 }
 
-type appMessage interface {
+type subjectMessage interface {
 	proto.Message
 	GetAppId() string
+	GetProjectId() string
+	GetReleaseId() string
 }
 
-func handle[M appMessage](event chassisevents.Event, message M, use func(M) error) error {
+type namedID struct {
+	name  string
+	value string
+}
+
+func handle[M subjectMessage](event chassisevents.Event, message M, use func(M) error) error {
 	if err := decoder.Unmarshal(event.Payload, message); err != nil {
 		return invalid(event, err.Error())
 	}
-	if message.GetAppId() == "" {
-		return invalid(event, "the app id is empty")
+	for _, id := range []namedID{
+		{name: "app", value: message.GetAppId()},
+		{name: "project", value: message.GetProjectId()},
+		{name: "release", value: message.GetReleaseId()},
+	} {
+		if !uuidPattern.MatchString(id.value) {
+			return invalid(event, fmt.Sprintf("the %s id %q is not a UUID", id.name, id.value))
+		}
 	}
 	return use(message)
 }
