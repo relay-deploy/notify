@@ -9,6 +9,7 @@ import (
 
 type WorkloadEvents struct {
 	NewLoopAfter time.Duration
+	Quiet        time.Duration
 }
 
 func (w WorkloadEvents) Crashed(ctx context.Context, unit Unit, crash domain.Crash) error {
@@ -16,14 +17,24 @@ func (w WorkloadEvents) Crashed(ctx context.Context, unit Unit, crash domain.Cra
 	if err != nil {
 		return err
 	}
-	if alert != nil && !alert.IsStale(crash, w.NewLoopAfter) {
-		alert.Add(crash)
-		return unit.Alerts().Save(ctx, alert)
-	}
-	if alert != nil {
-		if err := unit.Alerts().Close(ctx, crash.AppID); err != nil {
+	switch {
+	case alert == nil:
+		return w.open(ctx, unit, crash)
+	case alert.RecoveryDue(crash.At, w.Quiet):
+		if err := unit.Emails().Enqueue(ctx, domain.RecoveredEmail(alert)); err != nil {
 			return err
 		}
+		return w.reopen(ctx, unit, crash)
+	case alert.IsStale(crash, w.NewLoopAfter):
+		return w.reopen(ctx, unit, crash)
+	}
+	alert.Add(crash)
+	return unit.Alerts().Save(ctx, alert)
+}
+
+func (w WorkloadEvents) reopen(ctx context.Context, unit Unit, crash domain.Crash) error {
+	if err := unit.Alerts().Close(ctx, crash.AppID); err != nil {
+		return err
 	}
 	return w.open(ctx, unit, crash)
 }

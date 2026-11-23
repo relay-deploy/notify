@@ -56,7 +56,7 @@ func run() int {
 	}
 	defer directory.Close()
 
-	dispatcher := events.Dispatcher(app.WorkloadEvents{NewLoopAfter: loaded.newLoopAfter}, app.ReleaseEvents{})
+	dispatcher := events.Dispatcher(app.WorkloadEvents{NewLoopAfter: loaded.newLoopAfter, Quiet: loaded.recoveryQuietTime}, app.ReleaseEvents{})
 	components := []hosting.Component{hosting.ManagementServer(loaded.managementPort, health)}
 	for _, source := range loaded.sources {
 		components = append(components, chassisevents.Subscription(pool, schema, source, dispatcher, chassisevents.DefaultOptions()))

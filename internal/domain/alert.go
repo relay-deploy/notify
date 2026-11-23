@@ -60,9 +60,7 @@ func (a *CrashAlert) RecoveryDue(now time.Time, quiet time.Duration) bool {
 }
 
 func (a *CrashAlert) ReminderDue(now time.Time, interval time.Duration) bool {
-	return a.RecoveredAt == nil &&
-		now.Sub(a.LastNotifiedAt) >= interval &&
-		a.CrashCount > a.LastNotifiedCrashCount
+	return now.Sub(a.LastNotifiedAt) >= interval && a.CrashCount > a.LastNotifiedCrashCount
 }
 
 func (a *CrashAlert) Remind(now time.Time) {
