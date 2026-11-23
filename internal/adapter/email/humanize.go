@@ -25,11 +25,30 @@ func humanize(d time.Duration) string {
 	return fmt.Sprintf("%d h %d min", hours, minutes)
 }
 
-func times(count int) string {
-	if count == 1 {
-		return "1 time"
+func spell(d time.Duration) string {
+	switch {
+	case d < time.Minute:
+		return quantity(max(int(d/time.Second), 1), "second", "seconds")
+	case d < time.Hour:
+		return quantity(int(d/time.Minute), "minute", "minutes")
 	}
-	return fmt.Sprintf("%d times", count)
+	hours := quantity(int(d/time.Hour), "hour", "hours")
+	minutes := int(d % time.Hour / time.Minute)
+	if minutes == 0 {
+		return hours
+	}
+	return hours + " " + quantity(minutes, "minute", "minutes")
+}
+
+func times(count int) string {
+	return quantity(count, "time", "times")
+}
+
+func quantity(count int, one, many string) string {
+	if count == 1 {
+		return "1 " + one
+	}
+	return fmt.Sprintf("%d %s", count, many)
 }
 
 func shortDigest(digest string) string {

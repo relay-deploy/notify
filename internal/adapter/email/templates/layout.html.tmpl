@@ -1,114 +1,51 @@
-<!DOCTYPE html>
-<html lang="en" dir="ltr">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="x-apple-disable-message-reformatting">
-<meta name="format-detection" content="telephone=no, date=no, address=no, email=no, url=no">
-<meta name="color-scheme" content="light dark">
-<meta name="supported-color-schemes" content="light dark">
-<title>{{.Subject}}</title>
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="color-scheme" content="light dark"><meta name="supported-color-schemes" content="light dark"><title>{{.Subject}}</title>
+<script type="application/ld+json">{{.LinkedData}}</script>
 <style>
-body { margin: 0; padding: 0; width: 100%; -webkit-text-size-adjust: 100%; -ms-text-size-adjust: 100%; }
-table { border-collapse: collapse; }
-a[x-apple-data-detectors] { color: inherit !important; text-decoration: none !important; font-size: inherit !important; font-family: inherit !important; font-weight: inherit !important; line-height: inherit !important; }
-@media only screen and (max-width: 600px) {
-  .gutter { padding: 24px 12px !important; }
-  .inner { padding-left: 24px !important; padding-right: 24px !important; }
-  .footer { padding-left: 25px !important; padding-right: 25px !important; }
-  .label { width: 92px !important; }
-  .headline { font-size: 20px !important; line-height: 28px !important; }
-}
-</style>
-<style>
-:root { color-scheme: light dark; supported-color-schemes: light dark; }
 @media (prefers-color-scheme: dark) {
-  .page { background-color: #0a0a0a !important; }
-  .card { background-color: #141414 !important; border-left-color: #262626 !important; border-right-color: #262626 !important; border-bottom-color: #262626 !important; }
-  .ink { color: #f5f5f5 !important; }
-  .prose { color: #d4d4d4 !important; }
-  .muted { color: #a3a3a3 !important; }
-  .divider { border-top-color: #242424 !important; }
-  .panel { background-color: #0e0e0e !important; border-color: #262626 !important; }
+  .bg { background:#16181b !important; }
+  .ink { color:#e6e8eb !important; }
+  .muted { color:#9ba3ad !important; }
+  .faint { color:#6e7681 !important; }
+  .rule { border-color:#2d3136 !important; }
+  .panel { background:#1d2024 !important; border-color:#2d3136 !important; }
 }
-</style>
-</head>
-<body class="page" style="margin:0;padding:0;width:100%;background-color:#f5f5f5;">
-<table role="presentation" class="page" width="100%" cellpadding="0" cellspacing="0" border="0" style="width:100%;background-color:#f5f5f5;">
-  <tr>
-    <td class="gutter" align="center" style="padding:48px 16px;">
-      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="width:100%;max-width:560px;border-collapse:separate;border-spacing:0;">
-        <tr>
-          <td class="card inner" style="padding:32px 40px 30px;background-color:#ffffff;border:1px solid #e5e5e5;border-top:4px solid {{.Accent}};border-radius:12px;font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;text-align:left;">
-            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="width:100%;">
-              <tr>
-                <td class="ink" style="font-size:11px;line-height:16px;font-weight:600;letter-spacing:3px;color:#171717;">RELAY</td>
-              </tr>
-              <tr>
-                <td style="padding-top:32px;">
-                  <h1 class="ink headline" style="margin:0;font-size:22px;line-height:30px;font-weight:600;letter-spacing:-0.2px;color:#171717;"><span style="font-family:ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;font-size:0.95em;letter-spacing:0;">{{.App}}</span> {{.Verb}}</h1>
-                </td>
-              </tr>
-              {{- with .Project}}
-              <tr>
-                <td class="muted" style="padding-top:4px;font-size:14px;line-height:20px;color:#737373;">{{.}}</td>
-              </tr>
-              {{- end}}
-              {{- with .Summary}}
-              <tr>
-                <td class="prose" style="padding-top:20px;font-size:15px;line-height:24px;color:#404040;">{{.}}</td>
-              </tr>
-              {{- end}}
-              {{- if .Rows}}
-              <tr>
-                <td style="padding-top:28px;">
-                  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="width:100%;">
-                    {{- range .Rows}}
-                    <tr>
-                      <td class="label muted divider" width="104" valign="top" style="width:104px;padding:10px 16px 10px 0;border-top:1px solid #ededed;font-size:13px;line-height:20px;color:#737373;white-space:nowrap;">{{.Label}}</td>
-                      <td class="ink divider" valign="top" style="padding:10px 0;border-top:1px solid #ededed;font-size:14px;line-height:20px;color:#171717;word-break:break-word;overflow-wrap:anywhere;">
-                        {{- if .Mono}}<span style="font-family:ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;font-size:13px;">{{breakable .Value}}</span>{{else}}{{.Value}}{{end}}
-                        {{- with .Note}}<span class="muted" style="color:#737373;">&nbsp;&nbsp;·&nbsp;&nbsp;{{.}}</span>{{end -}}
-                      </td>
-                    </tr>
-                    {{- end}}
-                  </table>
-                </td>
-              </tr>
-              {{- end}}
-              {{- with .Failure}}
-              <tr>
-                <td style="padding-top:16px;">
-                  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="width:100%;border-collapse:separate;border-spacing:0;">
-                    <tr>
-                      <td class="panel" style="padding:16px 18px;background-color:#fafafa;border:1px solid #ebebeb;border-radius:8px;font-family:ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;">
-                        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="width:100%;">
-                          {{- with .Code}}
-                          <tr>
-                            <td class="ink" style="font-size:13px;line-height:20px;font-weight:600;color:#171717;">{{.}}</td>
-                          </tr>
-                          {{- end}}
-                          {{- with .Message}}
-                          <tr>
-                            <td class="prose" style="padding-top:8px;font-size:12px;line-height:19px;color:#404040;white-space:pre-wrap;word-break:break-word;overflow-wrap:anywhere;">{{.}}</td>
-                          </tr>
-                          {{- end}}
-                        </table>
-                      </td>
-                    </tr>
-                  </table>
-                </td>
-              </tr>
-              {{- end}}
-            </table>
-          </td>
-        </tr>
-        <tr>
-          <td class="footer muted" style="padding:20px 41px 0;font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;font-size:12px;line-height:18px;color:#737373;text-align:left;">{{.SentAt}}&nbsp;&nbsp;·&nbsp;&nbsp;Sent by relay</td>
-        </tr>
-      </table>
-    </td>
-  </tr>
-</table>
-</body>
-</html>
+@media (max-width:600px) { .pad { padding:32px 20px !important; } }
+</style></head>
+<body class="bg" style="margin:0;padding:0;background:#ffffff;">
+<div style="display:none;max-height:0;overflow:hidden;opacity:0;">{{.Summary}}</div>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" class="bg" style="background:#ffffff;">
+<tr><td align="center"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;">
+<tr><td class="pad" style="padding:48px 32px;font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
+<p class="ink" style="margin:0;font-size:22px;line-height:1.3;font-weight:650;color:#1f2328;letter-spacing:-0.01em;"><span style="color:{{if .Calm}}#2f7d4f{{else}}#c4302b{{end}};font-size:15px;vertical-align:3px;">&#9679;</span>&nbsp; {{.Headline}}</p>
+{{- with .Project}}
+<p class="muted" style="margin:6px 0 0 0;font-size:14px;line-height:1.4;color:#59636e;">{{.}}</p>
+{{- end}}
+<p class="ink" style="margin:24px 0 0 0;font-size:15px;line-height:1.6;color:#1f2328;">{{range .Body}}{{if .Bold}}<b>{{breakable .Text}}</b>{{else}}{{.Text}}{{end}}{{end}}</p>
+{{- with .Timeline}}
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-top:28px;"><tr>
+{{- range .Ticks}}<td style="width:10px;padding:0 3px 0 0;"><div style="width:7px;height:22px;border-radius:2px;background:#c4302b;"></div></td>{{end}}
+{{- with .Hidden}}<td class="muted" style="width:1%;padding:0 0 0 3px;font-size:12px;line-height:22px;color:#59636e;white-space:nowrap;">+{{.}}</td>{{end}}
+{{- if .Recovered}}<td style="padding:0 0 0 6px;"><div style="height:4px;border-radius:2px;background:#2f7d4f;"></div></td>
+{{- else}}<td style="padding:0 0 0 6px;"><div class="rule" style="height:0;border-top:2px dashed #e4e7eb;"></div></td>
+{{- end}}</tr></table>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-top:8px;"><tr>
+<td class="faint" style="font-size:12px;color:#8b949e;">{{.Start}}</td>
+<td class="faint" align="right" style="font-size:12px;color:#8b949e;">{{.End}}</td></tr></table>
+{{- end}}
+{{- with .Failure}}
+<div class="panel" style="margin-top:24px;padding:14px 16px;background:#f6f7f9;border:1px solid #e4e7eb;border-radius:8px;">
+{{- with .Code}}
+<p class="ink" style="margin:0;font-family:ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;font-size:13px;font-weight:600;color:#1f2328;">{{.}}</p>
+{{- end}}
+{{- with .Message}}
+<p class="muted" style="margin:6px 0 0 0;font-family:ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;font-size:12.5px;line-height:1.55;color:#59636e;white-space:pre-wrap;word-break:break-word;">{{.}}</p>
+{{- end}}</div>
+{{- end}}
+{{- with .Rows}}
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-top:28px;border-collapse:collapse;">
+{{- range .}}<tr><td class="muted rule" style="padding:9px 0;width:128px;font-size:14px;color:#59636e;border-top:1px solid #e4e7eb;vertical-align:top;">{{.Label}}</td><td class="ink rule" style="padding:9px 0;font-size:14px;color:#1f2328;border-top:1px solid #e4e7eb;vertical-align:top;">
+{{- if .Mono}}<span style="font-family:ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;font-size:13px;">{{breakable .Value}}</span>{{else}}{{.Value}}{{end -}}
+</td></tr>{{end}}</table>
+{{- end}}
+<p class="faint" style="margin:36px 0 0 0;font-size:12px;line-height:1.5;color:#8b949e;">{{.Footer}}</p></td></tr></table></td></tr></table></body></html>

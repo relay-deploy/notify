@@ -1,18 +1,6 @@
-RELAY
+{{.Headline}}
 
-{{.App}} {{.Verb}}
-{{- with .Project}}
-{{.}}
-{{- end}}
-{{- with .Summary}}
-
-{{.}}
-{{- end}}
-{{- if .Rows}}
-{{range .Rows}}
-{{printf "%-16s" .Label}}{{.Value}}{{with .Note}} · {{.}}{{end}}
-{{- end}}
-{{- end}}
+{{.Summary}}
 {{- with .Failure}}
 {{with .Code}}
 {{.}}
@@ -21,5 +9,10 @@ RELAY
 {{.}}
 {{- end}}
 {{- end}}
+{{- if .Rows}}
+{{range .Rows}}
+{{.Label}}: {{.Value}}
+{{- end}}
+{{- end}}
 
-{{.SentAt}} · Sent by relay
+{{.Footer}}

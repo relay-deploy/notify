@@ -2,9 +2,9 @@ package email
 
 import (
 	_ "embed"
+	"encoding/json"
 	"fmt"
 	htmltemplate "html/template"
-	"strconv"
 	"strings"
 	texttemplate "text/template"
 	"time"
@@ -14,10 +14,9 @@ import (
 )
 
 const (
-	alarmAccent         = "#d92d20"
-	calmAccent          = "#079455"
-	timeLayout          = "2 Jan 2006, 15:04 MST"
-	failureMessageLimit = 600
+	defaultQuietPeriod      = 5 * time.Minute
+	defaultReminderInterval = 30 * time.Minute
+	clockLayout             = "15:04"
 )
 
 var (
@@ -32,35 +31,72 @@ var (
 )
 
 type Composer struct {
-	location *time.Location
+	location         *time.Location
+	quietPeriod      time.Duration
+	reminderInterval time.Duration
 }
 
 func NewComposer(location *time.Location) *Composer {
-	return &Composer{location: location}
+	return &Composer{location: location, quietPeriod: defaultQuietPeriod, reminderInterval: defaultReminderInterval}
+}
+
+func (c *Composer) WithCadence(quietPeriod, reminderInterval time.Duration) *Composer {
+	return &Composer{location: c.location, quietPeriod: quietPeriod, reminderInterval: reminderInterval}
 }
 
 type page struct {
-	Subject string
-	Accent  string
-	App     string
-	Project string
-	Verb    string
-	Summary string
-	Rows    []row
-	Failure *failure
-	SentAt  string
+	Subject    string
+	Headline   string
+	Calm       bool
+	Project    string
+	Summary    string
+	LinkedData htmltemplate.JS
+	Body       []segment
+	Timeline   *timeline
+	Failure    *failure
+	Rows       []row
+	Footer     string
 }
 
-type row struct {
-	Label string
-	Value string
-	Note  string
-	Mono  bool
+type segment struct {
+	Text string
+	Bold bool
+}
+
+type timeline struct {
+	Ticks     int
+	Hidden    int
+	Recovered bool
+	Start     string
+	End       string
 }
 
 type failure struct {
 	Code    string
 	Message string
+}
+
+type row struct {
+	Label string
+	Value string
+	Mono  bool
+}
+
+type naming struct {
+	app     string
+	project string
+}
+
+type emailMessage struct {
+	Context     string       `json:"@context"`
+	Type        string       `json:"@type"`
+	Description string       `json:"description"`
+	Publisher   organization `json:"publisher"`
+}
+
+type organization struct {
+	Type string `json:"@type"`
+	Name string `json:"name"`
 }
 
 func (c *Composer) Compose(e domain.Email, names app.Names) (app.Rendered, error) {
@@ -79,122 +115,102 @@ func (c *Composer) Compose(e domain.Email, names app.Names) (app.Rendered, error
 }
 
 func (c *Composer) page(e domain.Email, names app.Names) (page, error) {
-	facts := e.Facts
-	appName := nameOrShortID(names.App, e.AppID)
-	content := page{
-		Accent:  alarmAccent,
-		App:     appName,
-		Project: nameOrShortID(names.Project, e.ProjectID),
-		Rows:    c.rows(e),
-		SentAt:  c.format(e.At),
-	}
-	span := humanize(facts.Until.Sub(facts.Since))
+	about := naming{app: nameOrShortID(names.App, e.AppID), project: nameOrShortID(names.Project, e.ProjectID)}
+	var content page
 	switch e.Kind {
 	case domain.Deployed:
-		content.Accent = calmAccent
-		content.Verb = "deployed"
-		content.Subject = fmt.Sprintf("✓ %s deployed · %s", appName, humanize(facts.Duration))
+		content = c.deployed(e.Facts, about)
 	case domain.DeployFailed:
-		content.Verb = "deploy failed"
-		content.Subject = fmt.Sprintf("✗ %s deploy failed%s", appName, detail(facts.FailureCode))
-		content.Failure = failureOf(facts)
+		content = c.deployFailed(e.Facts, about)
 	case domain.Crashed:
-		content.Verb = "crashed"
-		content.Subject = fmt.Sprintf("● %s crashed · exit %d%s", appName, facts.ExitCode, outOfMemory(facts, ", out of memory"))
+		content = c.crashed(e, about)
 	case domain.StillCrashing:
-		content.Verb = "is still crashing"
-		content.Subject = fmt.Sprintf("● %s is still crashing · %d crashes in %s", appName, facts.CrashCount, span)
+		content = c.stillCrashing(e.Facts, about)
 	case domain.Recovered:
-		content.Accent = calmAccent
-		content.Verb = "recovered"
-		content.Subject = fmt.Sprintf("● %s recovered · crashed %s over %s", appName, times(facts.CrashCount), span)
-		content.Summary = fmt.Sprintf("Crashed %s over %s. Last exit %d%s.", times(facts.CrashCount), span, facts.ExitCode, outOfMemory(facts, " (out of memory)"))
+		content = c.recovered(e.Facts, about)
 	default:
 		return page{}, fmt.Errorf("Cannot render an email of kind %q", e.Kind)
 	}
+	linked, err := linkedData(content.Summary)
+	if err != nil {
+		return page{}, fmt.Errorf("Cannot describe the %s email as JSON-LD: %w", e.Kind, err)
+	}
+	content.Project = about.project
+	content.LinkedData = linked
+	content.Footer = c.footer(e.At)
 	return content, nil
 }
 
-func (c *Composer) rows(e domain.Email) []row {
-	facts := e.Facts
-	var rows []row
-	if facts.CrashCount > 0 {
-		rows = append(rows, row{Label: "Crashes", Value: strconv.Itoa(facts.CrashCount)})
+func (c *Composer) timeline(crashes int, start, end time.Time, recovered bool) *timeline {
+	shown := min(max(crashes, 1), tickLimit)
+	strip := &timeline{Ticks: shown, Hidden: max(crashes-tickLimit, 0), Recovered: recovered, Start: c.clock(start)}
+	if !end.IsZero() {
+		strip.End = c.clock(end)
 	}
-	if isCrash(e.Kind) {
-		rows = append(rows, row{Label: exitLabel(facts), Value: strconv.Itoa(facts.ExitCode), Note: outOfMemory(facts, "out of memory"), Mono: true})
-	}
-	if facts.RestartCount > 0 {
-		rows = append(rows, row{Label: "Restarts", Value: strconv.Itoa(facts.RestartCount)})
-	}
-	if !facts.Since.IsZero() && !facts.Since.Equal(e.At) {
-		rows = append(rows, row{Label: sinceLabel(e.Kind), Value: c.format(facts.Since)})
-	}
-	if facts.ReleaseID != "" {
-		rows = append(rows, row{Label: "Release", Value: domain.ShortID(facts.ReleaseID), Mono: true})
-	}
-	if facts.ImageReference != "" {
-		rows = append(rows, row{Label: "Image", Value: facts.ImageReference, Mono: true})
-	}
-	if facts.ImageDigest != "" {
-		rows = append(rows, row{Label: "Digest", Value: shortDigest(facts.ImageDigest), Mono: true})
-	}
-	if facts.Duration > 0 {
-		rows = append(rows, row{Label: "Duration", Value: humanize(facts.Duration)})
-	}
-	return rows
+	return strip
 }
 
-func (c *Composer) format(t time.Time) string {
-	return t.In(c.location).Format(timeLayout)
+func (c *Composer) clock(t time.Time) string {
+	return t.In(c.location).Format(clockLayout)
 }
 
-func isCrash(kind domain.EmailKind) bool {
-	return kind == domain.Crashed || kind == domain.StillCrashing || kind == domain.Recovered
+func (c *Composer) footer(at time.Time) string {
+	local := at.In(c.location)
+	return fmt.Sprintf("Sent by relay at %s on %s.", local.Format("15:04 MST"), local.Format("2 January 2006"))
 }
 
-func exitLabel(facts domain.Facts) string {
-	if facts.CrashCount > 1 {
-		return "Last exit code"
+func (n naming) inProject() string {
+	if n.project == "" {
+		return n.app
 	}
-	return "Exit code"
+	return n.app + " in " + n.project
 }
 
-func sinceLabel(kind domain.EmailKind) string {
-	if kind == domain.Recovered {
-		return "First crash"
+func linkedData(summary string) (htmltemplate.JS, error) {
+	encoded, err := json.Marshal(emailMessage{
+		Context:     "http://schema.org",
+		Type:        "EmailMessage",
+		Description: summary,
+		Publisher:   organization{Type: "Organization", Name: "relay"},
+	})
+	if err != nil {
+		return "", err
 	}
-	return "Since"
+	return htmltemplate.JS(encoded), nil
 }
 
-func outOfMemory(facts domain.Facts, text string) string {
-	if facts.OutOfMemory {
-		return text
-	}
-	return ""
+func plain(text string) segment {
+	return segment{Text: text}
 }
 
-func detail(text string) string {
-	if text == "" {
-		return ""
-	}
-	return " · " + text
+func bold(text string) segment {
+	return segment{Text: text, Bold: true}
 }
 
-func failureOf(facts domain.Facts) *failure {
-	message := truncate(facts.FailureMessage, failureMessageLimit)
-	if facts.FailureCode == "" && message == "" {
-		return nil
+func textRow(label, value string) row {
+	return row{Label: label, Value: value}
+}
+
+func monoRow(label, value string) row {
+	return row{Label: label, Value: value, Mono: true}
+}
+
+func present(rows ...row) []row {
+	var kept []row
+	for _, candidate := range rows {
+		if candidate.Value != "" {
+			kept = append(kept, candidate)
+		}
 	}
-	return &failure{Code: facts.FailureCode, Message: message}
+	return kept
 }
 
 func breakable(value string) htmltemplate.HTML {
-	segments := strings.SplitAfter(value, "/")
-	for index, segment := range segments {
-		segments[index] = htmltemplate.HTMLEscapeString(segment)
+	parts := strings.SplitAfter(value, "/")
+	for index, part := range parts {
+		parts[index] = htmltemplate.HTMLEscapeString(part)
 	}
-	return htmltemplate.HTML(strings.Join(segments, "<wbr>"))
+	return htmltemplate.HTML(strings.Join(parts, "<wbr>"))
 }
 
 func nameOrShortID(name, id string) string {
