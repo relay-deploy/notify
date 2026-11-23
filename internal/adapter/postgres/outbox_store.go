@@ -75,9 +75,7 @@ func scanPendingEmail(row pgx.CollectableRow) (app.PendingEmail, error) {
 		return pending, err
 	}
 	pending.Email.Kind = domain.EmailKind(kind)
-	if err := json.Unmarshal(facts, &pending.Email.Facts); err != nil {
-		return pending, err
-	}
+	pending.Unreadable = json.Unmarshal(facts, &pending.Email.Facts)
 	if subject != nil && html != nil && text != nil {
 		pending.Rendered = &app.Rendered{Subject: *subject, HTML: *html, Text: *text}
 	}

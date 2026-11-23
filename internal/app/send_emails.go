@@ -21,11 +21,12 @@ const (
 var senderLogger = logging.New("notify.sender")
 
 type PendingEmail struct {
-	ID        string
-	Email     domain.Email
-	Rendered  *Rendered
-	Attempts  int
-	CreatedAt time.Time
+	ID         string
+	Email      domain.Email
+	Unreadable error
+	Rendered   *Rendered
+	Attempts   int
+	CreatedAt  time.Time
 }
 
 type EmailStore interface {
@@ -96,6 +97,9 @@ func (s SendEmails) deliver(ctx context.Context, pending PendingEmail, now time.
 func (s SendEmails) render(ctx context.Context, pending PendingEmail, now time.Time) (Rendered, bool, error) {
 	if pending.Rendered != nil {
 		return *pending.Rendered, true, nil
+	}
+	if pending.Unreadable != nil {
+		return Rendered{}, false, s.abandon(ctx, pending, "its stored facts cannot be read: "+pending.Unreadable.Error())
 	}
 	names, ready, err := s.names(ctx, pending, now)
 	if err != nil || !ready {
