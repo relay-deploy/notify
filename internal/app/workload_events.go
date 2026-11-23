@@ -1,0 +1,50 @@
+package app
+
+import (
+	"context"
+	"time"
+
+	"github.com/relay-deploy/notify/internal/domain"
+)
+
+type WorkloadEvents struct {
+	NewLoopAfter time.Duration
+}
+
+func (w WorkloadEvents) Crashed(ctx context.Context, unit Unit, crash domain.Crash) error {
+	alert, err := unit.Alerts().Find(ctx, crash.AppID)
+	if err != nil {
+		return err
+	}
+	if alert != nil && !alert.IsStale(crash, w.NewLoopAfter) {
+		alert.Add(crash)
+		return unit.Alerts().Save(ctx, alert)
+	}
+	if alert != nil {
+		if err := unit.Alerts().Close(ctx, crash.AppID); err != nil {
+			return err
+		}
+	}
+	return w.open(ctx, unit, crash)
+}
+
+func (w WorkloadEvents) open(ctx context.Context, unit Unit, crash domain.Crash) error {
+	alert := domain.OpenAlert(crash)
+	if err := unit.Alerts().Save(ctx, alert); err != nil {
+		return err
+	}
+	return unit.Emails().Enqueue(ctx, domain.CrashedEmail(alert))
+}
+
+func (w WorkloadEvents) Recovered(ctx context.Context, unit Unit, appID string, at time.Time) error {
+	alert, err := unit.Alerts().Find(ctx, appID)
+	if err != nil || alert == nil {
+		return err
+	}
+	alert.Recover(at)
+	return unit.Alerts().Save(ctx, alert)
+}
+
+func (w WorkloadEvents) Stopped(ctx context.Context, unit Unit, appID string) error {
+	return unit.Alerts().Close(ctx, appID)
+}

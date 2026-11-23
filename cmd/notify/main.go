@@ -4,10 +4,13 @@ import (
 	"context"
 	"os"
 
+	chassisevents "github.com/relay-deploy/chassis/go/events"
 	"github.com/relay-deploy/chassis/go/hosting"
 	"github.com/relay-deploy/chassis/go/logging"
 	chassispostgres "github.com/relay-deploy/chassis/go/postgres"
 	notifypostgres "github.com/relay-deploy/notify/internal/adapter/postgres"
+	"github.com/relay-deploy/notify/internal/app"
+	"github.com/relay-deploy/notify/internal/transport/events"
 )
 
 const schema = "notify"
@@ -44,5 +47,11 @@ func run() int {
 		logger.Warn("No Resend API key, emails are logged instead of sent")
 	}
 
-	return hosting.Run(logger, hosting.ManagementServer(loaded.managementPort, health))
+	dispatcher := events.Dispatcher(app.WorkloadEvents{NewLoopAfter: loaded.newLoopAfter}, app.ReleaseEvents{})
+	components := []hosting.Component{hosting.ManagementServer(loaded.managementPort, health)}
+	for _, source := range loaded.sources {
+		components = append(components, chassisevents.Subscription(pool, schema, source, dispatcher, chassisevents.DefaultOptions()))
+	}
+
+	return hosting.Run(logger, components...)
 }
