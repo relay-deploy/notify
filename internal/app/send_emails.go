@@ -15,7 +15,7 @@ const (
 	claimLimit        = 20
 	firstRetryDelay   = 30 * time.Second
 	longestRetryDelay = 15 * time.Minute
-	giveUpAfter       = 24 * time.Hour
+	sendWindow        = 23 * time.Hour
 )
 
 var senderLogger = logging.New("notify.sender")
@@ -71,6 +71,9 @@ func (s SendEmails) SendDue(ctx context.Context, now time.Time) error {
 }
 
 func (s SendEmails) deliver(ctx context.Context, pending PendingEmail, now time.Time) error {
+	if now.Sub(pending.CreatedAt) >= sendWindow {
+		return s.abandon(ctx, pending, fmt.Sprintf("still unsent %.0f h after it was queued, too close to the end of Resend's 24 h idempotency window", sendWindow.Hours()))
+	}
 	rendered, ready, err := s.render(ctx, pending, now)
 	if err != nil || !ready {
 		return err
@@ -79,16 +82,13 @@ func (s SendEmails) deliver(ctx context.Context, pending PendingEmail, now time.
 	if ctx.Err() != nil {
 		return ctx.Err()
 	}
-	age := now.Sub(pending.CreatedAt)
 	switch {
 	case err == nil:
 		return s.Store.MarkSent(ctx, pending.ID, providerID, now)
-	case fault.IsUnavailable(err) && age < giveUpAfter:
+	case fault.IsUnavailable(err):
 		retryAt := now.Add(retryDelay(pending.Attempts))
 		senderLogger.Warn(fmt.Sprintf("Sending email %s failed (%s), retrying at %s", pending.ID, err, retryAt.UTC().Format(time.RFC3339)))
 		return s.Store.RetryAt(ctx, pending.ID, retryAt, err.Error())
-	case fault.IsUnavailable(err):
-		return s.abandon(ctx, pending, fmt.Sprintf("still unsent %.0f h after it was queued: %s", giveUpAfter.Hours(), err))
 	default:
 		return s.abandon(ctx, pending, err.Error())
 	}
