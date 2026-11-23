@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
 	"time"
@@ -28,6 +29,14 @@ type Mailer struct {
 	apiKey   string
 	from     string
 	to       string
+}
+
+func ValidBaseURL(baseURL string) error {
+	parsed, err := url.Parse(baseURL)
+	if err != nil || (parsed.Scheme != "http" && parsed.Scheme != "https") || parsed.Host == "" {
+		return fault.New(fault.Validation, "resend.invalid_base_url", "'"+baseURL+"' is not an http or https URL with a host.")
+	}
+	return nil
 }
 
 func NewMailer(baseURL, apiKey, from, to string) *Mailer {
