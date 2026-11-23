@@ -12,6 +12,7 @@ create table crash_alerts (
     last_crash_at timestamptz not null,
     crash_count int not null,
     last_exit_code int not null,
+    last_out_of_memory boolean not null,
     ran_out_of_memory boolean not null,
     last_notified_at timestamptz not null,
     last_notified_crash_count int not null,

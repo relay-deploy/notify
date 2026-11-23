@@ -98,9 +98,10 @@ func (c *Composer) stillCrashing(f domain.Facts, about naming) page {
 			about.inProject(), quantity(f.CrashCount, "crash", "crashes"), since, f.ExitCode, outOfMemory(f, " (out of memory)")),
 		Body: []segment{
 			bold(about.app),
-			plain(fmt.Sprintf(" has crashed %s in the last %s, most recently with exit code %d%s. "+
+			plain(fmt.Sprintf(" has crashed %s in the last %s, most recently with exit code %d%s.%s "+
 				"Docker keeps restarting it, with longer pauses each time. The next reminder comes in %s if nothing changes.",
-				times(f.CrashCount), spell(elapsed), f.ExitCode, outOfMemory(f, " after running out of memory"), spell(c.reminderInterval))),
+				times(f.CrashCount), spell(elapsed), f.ExitCode, outOfMemory(f, " after running out of memory"), earlierOutOfMemory(f),
+				spell(c.reminderInterval))),
 		},
 		Timeline: c.timeline(f.CrashCount, f.Since, f.Until, false),
 		Rows: present(
@@ -120,8 +121,9 @@ func (c *Composer) recovered(f domain.Facts, about naming) page {
 		Calm:     true,
 		Summary:  fmt.Sprintf("%s recovered: it crashed %s and has run without crashing since.", about.inProject(), window),
 		Body: []segment{
-			plain(fmt.Sprintf("It crashed %s, %s exit code %d%s, and has stayed up for %s since. No action is needed.",
-				window, lastExitLead(f.CrashCount), f.ExitCode, outOfMemory(f, " after running out of memory"), spell(c.quietPeriod))),
+			plain(fmt.Sprintf("It crashed %s, %s exit code %d%s, and has stayed up for %s since.%s No action is needed.",
+				window, lastExitLead(f.CrashCount), f.ExitCode, outOfMemory(f, " after running out of memory"), spell(c.quietPeriod),
+				earlierOutOfMemory(f))),
 		},
 		Timeline: c.timeline(f.CrashCount, f.Since, f.Until, true),
 		Rows: present(
@@ -151,7 +153,7 @@ func lastExitLead(crashes int) string {
 }
 
 func exitCause(f domain.Facts) string {
-	if f.OutOfMemory {
+	if f.LastOutOfMemory {
 		return fmt.Sprintf("ran out of memory and exited with code %d", f.ExitCode)
 	}
 	return fmt.Sprintf("exited with code %d", f.ExitCode)
@@ -162,8 +164,15 @@ func exitCode(f domain.Facts) string {
 }
 
 func outOfMemory(f domain.Facts, text string) string {
-	if f.OutOfMemory {
+	if f.LastOutOfMemory {
 		return text
+	}
+	return ""
+}
+
+func earlierOutOfMemory(f domain.Facts) string {
+	if f.RanOutOfMemory && !f.LastOutOfMemory {
+		return " It ran out of memory at least once."
 	}
 	return ""
 }

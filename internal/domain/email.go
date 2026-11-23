@@ -16,49 +16,52 @@ const (
 )
 
 type Facts struct {
-	ReleaseID      string
-	ImageReference string
-	ImageDigest    string
-	FailureCode    string
-	FailureMessage string
-	Duration       time.Duration
-	ExitCode       int
-	RestartCount   int
-	CrashCount     int
-	OutOfMemory    bool
-	Since          time.Time
-	Until          time.Time
+	ReleaseID       string
+	ImageReference  string
+	ImageDigest     string
+	FailureCode     string
+	FailureMessage  string
+	Duration        time.Duration
+	ExitCode        int
+	RestartCount    int
+	CrashCount      int
+	LastOutOfMemory bool
+	RanOutOfMemory  bool
+	Since           time.Time
+	Until           time.Time
 }
 
 type factsJSON struct {
-	ReleaseID      string     `json:"releaseId,omitempty"`
-	ImageReference string     `json:"imageReference,omitempty"`
-	ImageDigest    string     `json:"imageDigest,omitempty"`
-	FailureCode    string     `json:"failureCode,omitempty"`
-	FailureMessage string     `json:"failureMessage,omitempty"`
-	DurationMillis int64      `json:"durationMs,omitempty"`
-	ExitCode       int        `json:"exitCode,omitempty"`
-	RestartCount   int        `json:"restartCount,omitempty"`
-	CrashCount     int        `json:"crashCount,omitempty"`
-	OutOfMemory    bool       `json:"outOfMemory,omitempty"`
-	Since          *time.Time `json:"since,omitempty"`
-	Until          *time.Time `json:"until,omitempty"`
+	ReleaseID       string     `json:"releaseId,omitempty"`
+	ImageReference  string     `json:"imageReference,omitempty"`
+	ImageDigest     string     `json:"imageDigest,omitempty"`
+	FailureCode     string     `json:"failureCode,omitempty"`
+	FailureMessage  string     `json:"failureMessage,omitempty"`
+	DurationMillis  int64      `json:"durationMs,omitempty"`
+	ExitCode        int        `json:"exitCode,omitempty"`
+	RestartCount    int        `json:"restartCount,omitempty"`
+	CrashCount      int        `json:"crashCount,omitempty"`
+	LastOutOfMemory bool       `json:"lastOutOfMemory,omitempty"`
+	RanOutOfMemory  bool       `json:"ranOutOfMemory,omitempty"`
+	Since           *time.Time `json:"since,omitempty"`
+	Until           *time.Time `json:"until,omitempty"`
 }
 
 func (f Facts) MarshalJSON() ([]byte, error) {
 	return json.Marshal(factsJSON{
-		ReleaseID:      f.ReleaseID,
-		ImageReference: f.ImageReference,
-		ImageDigest:    f.ImageDigest,
-		FailureCode:    f.FailureCode,
-		FailureMessage: f.FailureMessage,
-		DurationMillis: f.Duration.Milliseconds(),
-		ExitCode:       f.ExitCode,
-		RestartCount:   f.RestartCount,
-		CrashCount:     f.CrashCount,
-		OutOfMemory:    f.OutOfMemory,
-		Since:          timeOrNil(f.Since),
-		Until:          timeOrNil(f.Until),
+		ReleaseID:       f.ReleaseID,
+		ImageReference:  f.ImageReference,
+		ImageDigest:     f.ImageDigest,
+		FailureCode:     f.FailureCode,
+		FailureMessage:  f.FailureMessage,
+		DurationMillis:  f.Duration.Milliseconds(),
+		ExitCode:        f.ExitCode,
+		RestartCount:    f.RestartCount,
+		CrashCount:      f.CrashCount,
+		LastOutOfMemory: f.LastOutOfMemory,
+		RanOutOfMemory:  f.RanOutOfMemory,
+		Since:           timeOrNil(f.Since),
+		Until:           timeOrNil(f.Until),
 	})
 }
 
@@ -68,16 +71,17 @@ func (f *Facts) UnmarshalJSON(data []byte) error {
 		return err
 	}
 	*f = Facts{
-		ReleaseID:      raw.ReleaseID,
-		ImageReference: raw.ImageReference,
-		ImageDigest:    raw.ImageDigest,
-		FailureCode:    raw.FailureCode,
-		FailureMessage: raw.FailureMessage,
-		Duration:       time.Duration(raw.DurationMillis) * time.Millisecond,
-		ExitCode:       raw.ExitCode,
-		RestartCount:   raw.RestartCount,
-		CrashCount:     raw.CrashCount,
-		OutOfMemory:    raw.OutOfMemory,
+		ReleaseID:       raw.ReleaseID,
+		ImageReference:  raw.ImageReference,
+		ImageDigest:     raw.ImageDigest,
+		FailureCode:     raw.FailureCode,
+		FailureMessage:  raw.FailureMessage,
+		Duration:        time.Duration(raw.DurationMillis) * time.Millisecond,
+		ExitCode:        raw.ExitCode,
+		RestartCount:    raw.RestartCount,
+		CrashCount:      raw.CrashCount,
+		LastOutOfMemory: raw.LastOutOfMemory,
+		RanOutOfMemory:  raw.RanOutOfMemory,
 	}
 	if raw.Since != nil {
 		f.Since = *raw.Since
@@ -118,11 +122,12 @@ func CrashedEmail(a *CrashAlert) Email {
 		ProjectID: a.ProjectID,
 		At:        a.OpenedAt,
 		Facts: Facts{
-			ReleaseID:    a.ReleaseID,
-			ExitCode:     a.LastExitCode,
-			OutOfMemory:  a.RanOutOfMemory,
-			RestartCount: a.OpeningRestartCount,
-			Since:        a.OpenedAt,
+			ReleaseID:       a.ReleaseID,
+			ExitCode:        a.LastExitCode,
+			LastOutOfMemory: a.LastOutOfMemory,
+			RanOutOfMemory:  a.RanOutOfMemory,
+			RestartCount:    a.OpeningRestartCount,
+			Since:           a.OpenedAt,
 		},
 	}
 }
@@ -134,12 +139,13 @@ func StillCrashingEmail(a *CrashAlert, now time.Time) Email {
 		ProjectID: a.ProjectID,
 		At:        now,
 		Facts: Facts{
-			ReleaseID:   a.ReleaseID,
-			CrashCount:  a.CrashCount,
-			ExitCode:    a.LastExitCode,
-			OutOfMemory: a.RanOutOfMemory,
-			Since:       a.OpenedAt,
-			Until:       now,
+			ReleaseID:       a.ReleaseID,
+			CrashCount:      a.CrashCount,
+			ExitCode:        a.LastExitCode,
+			LastOutOfMemory: a.LastOutOfMemory,
+			RanOutOfMemory:  a.RanOutOfMemory,
+			Since:           a.OpenedAt,
+			Until:           now,
 		},
 	}
 }
@@ -155,12 +161,13 @@ func RecoveredEmail(a *CrashAlert) Email {
 		ProjectID: a.ProjectID,
 		At:        until,
 		Facts: Facts{
-			ReleaseID:   a.ReleaseID,
-			CrashCount:  a.CrashCount,
-			ExitCode:    a.LastExitCode,
-			OutOfMemory: a.RanOutOfMemory,
-			Since:       a.OpenedAt,
-			Until:       until,
+			ReleaseID:       a.ReleaseID,
+			CrashCount:      a.CrashCount,
+			ExitCode:        a.LastExitCode,
+			LastOutOfMemory: a.LastOutOfMemory,
+			RanOutOfMemory:  a.RanOutOfMemory,
+			Since:           a.OpenedAt,
+			Until:           until,
 		},
 	}
 }

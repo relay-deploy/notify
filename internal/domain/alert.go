@@ -12,6 +12,7 @@ type CrashAlert struct {
 	CrashCount             int
 	LastExitCode           int
 	LastNotifiedCrashCount int
+	LastOutOfMemory        bool
 	RanOutOfMemory         bool
 	RecoveredAt            *time.Time
 	OpeningRestartCount    int
@@ -28,6 +29,7 @@ func OpenAlert(c Crash) *CrashAlert {
 		CrashCount:             1,
 		LastExitCode:           c.ExitCode,
 		LastNotifiedCrashCount: 1,
+		LastOutOfMemory:        c.OutOfMemory,
 		RanOutOfMemory:         c.OutOfMemory,
 		OpeningRestartCount:    c.RestartCount,
 	}
@@ -42,6 +44,7 @@ func (a *CrashAlert) Add(c Crash) {
 	a.LastExitCode = c.ExitCode
 	a.ReleaseID = c.ReleaseID
 	a.LastCrashAt = c.At
+	a.LastOutOfMemory = c.OutOfMemory
 	a.RanOutOfMemory = a.RanOutOfMemory || c.OutOfMemory
 	a.RecoveredAt = nil
 }
