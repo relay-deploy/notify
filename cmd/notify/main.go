@@ -72,7 +72,7 @@ func run() int {
 	sender := app.SendEmails{
 		Store:             notifypostgres.NewEmailStore(pool),
 		Directory:         directory,
-		Composer:          email.NewComposer(loaded.location),
+		Composer:          email.NewComposer(loaded.location).WithCadence(loaded.recoveryQuietTime, loaded.reminderInterval),
 		Mailer:            mailerFor(loaded, logger),
 		NameFallbackAfter: loaded.nameFallbackAfter,
 	}
