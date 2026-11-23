@@ -16,13 +16,13 @@ const claimDueSQL = `WITH claimed AS (
     WHERE id IN (
         SELECT id FROM emails
         WHERE status = 'pending' AND next_attempt_at <= $1
-        ORDER BY created_at
+        ORDER BY created_at, id
         LIMIT $3
         FOR UPDATE SKIP LOCKED)
     RETURNING id, kind, app_id, project_id, facts, occurred_at, subject, html, text_body, attempts, created_at)
 SELECT id::text, kind, app_id::text, project_id::text, facts, occurred_at, subject, html, text_body, attempts, created_at
 FROM claimed
-ORDER BY created_at`
+ORDER BY created_at, id`
 
 type emailStore struct {
 	db queryer
