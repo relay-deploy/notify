@@ -53,5 +53,13 @@ func run() int {
 		components = append(components, chassisevents.Subscription(pool, schema, source, dispatcher, chassisevents.DefaultOptions()))
 	}
 
+	pass := app.AlertPass{
+		Transactor:       notifypostgres.NewTransactor(pool),
+		Quiet:            loaded.recoveryQuietTime,
+		ReminderInterval: loaded.reminderInterval,
+		Expiry:           loaded.alertExpiry,
+	}
+	components = append(components, alertPassComponent(pass, loaded.alertPassInterval))
+
 	return hosting.Run(logger, components...)
 }
