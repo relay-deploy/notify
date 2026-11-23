@@ -39,11 +39,11 @@ func Dispatcher(workload app.WorkloadEvents, releases app.ReleaseEvents) chassis
 			})
 		case "relay.runtime.v1.WorkloadRecovered":
 			return handle(event, &runtimev1.WorkloadRecovered{}, func(m *runtimev1.WorkloadRecovered) error {
-				return workload.Recovered(ctx, unit, m.GetAppId(), event.OccurredAt)
+				return workload.Recovered(ctx, unit, m.GetAppId(), m.GetReleaseId(), event.OccurredAt)
 			})
 		case "relay.runtime.v1.WorkloadStopped":
 			return handle(event, &runtimev1.WorkloadStopped{}, func(m *runtimev1.WorkloadStopped) error {
-				return workload.Stopped(ctx, unit, m.GetAppId())
+				return workload.Stopped(ctx, unit, m.GetAppId(), m.GetReleaseId())
 			})
 		case "relay.platform.v1.ReleaseSucceeded":
 			return handle(event, &platformv1.ReleaseSucceeded{}, func(m *platformv1.ReleaseSucceeded) error {

@@ -13,6 +13,10 @@ type WorkloadEvents struct {
 }
 
 func (w WorkloadEvents) Crashed(ctx context.Context, unit Unit, crash domain.Crash) error {
+	old, err := superseded(ctx, unit, crash.AppID, crash.ReleaseID)
+	if err != nil || old {
+		return err
+	}
 	alert, err := unit.Alerts().Find(ctx, crash.AppID)
 	if err != nil {
 		return err
@@ -47,7 +51,11 @@ func (w WorkloadEvents) open(ctx context.Context, unit Unit, crash domain.Crash)
 	return unit.Emails().Enqueue(ctx, domain.CrashedEmail(alert))
 }
 
-func (w WorkloadEvents) Recovered(ctx context.Context, unit Unit, appID string, at time.Time) error {
+func (w WorkloadEvents) Recovered(ctx context.Context, unit Unit, appID, releaseID string, at time.Time) error {
+	old, err := superseded(ctx, unit, appID, releaseID)
+	if err != nil || old {
+		return err
+	}
 	alert, err := unit.Alerts().Find(ctx, appID)
 	if err != nil || alert == nil {
 		return err
@@ -56,6 +64,17 @@ func (w WorkloadEvents) Recovered(ctx context.Context, unit Unit, appID string, 
 	return unit.Alerts().Save(ctx, alert)
 }
 
-func (w WorkloadEvents) Stopped(ctx context.Context, unit Unit, appID string) error {
+func (w WorkloadEvents) Stopped(ctx context.Context, unit Unit, appID, releaseID string) error {
+	old, err := superseded(ctx, unit, appID, releaseID)
+	if err != nil || old {
+		return err
+	}
 	return unit.Alerts().Close(ctx, appID)
+}
+
+func superseded(ctx context.Context, unit Unit, appID, releaseID string) (bool, error) {
+	if err := unit.LockApp(ctx, appID); err != nil {
+		return false, err
+	}
+	return unit.Releases().Superseded(ctx, appID, releaseID)
 }

@@ -19,6 +19,11 @@ create table crash_alerts (
     recovered_at timestamptz
 );
 
+create table live_releases (
+    app_id uuid primary key,
+    release_id uuid not null
+);
+
 create table emails (
     id uuid primary key default uuidv7(),
     kind text not null,
